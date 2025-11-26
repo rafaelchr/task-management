@@ -4,8 +4,11 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+	jwtware "github.com/gofiber/jwt/v3"
 	"github.com/joho/godotenv"
+	"github.com/rafaelchr/task-management/config"
 	"github.com/rafaelchr/task-management/controllers"
+	"github.com/rafaelchr/task-management/utils"
 )
 
 func Setup(app *fiber.App, uc *controllers.UserController) {
@@ -15,4 +18,19 @@ func Setup(app *fiber.App, uc *controllers.UserController) {
 	}
 
 	app.Post("/v1/auth/register", uc.Register)
+	app.Post("/v1/auth/login", uc.Login)
+
+	// jwt protected route
+	api := app.Group("/api/v1", jwtware.New(jwtware.Config{
+		SigningKey: []byte(config.AppConfig.JWTSecret),
+		ContextKey: "user",
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			return utils.Unauthorized(c, "Unauthorized", err.Error())
+		},
+	}))
+
+	userGroup := api.Group("/users")
+	userGroup.Get("/page", uc.GetUserPagination)
+	userGroup.Get("/:id", uc.GetUser)
+	userGroup.Put("/:id", uc.UpdateUser)
 }
